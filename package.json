@@ -1,0 +1,28 @@
+{
+  "name": "discord-games",
+  "version": "1.0.0",
+  "description": "A Discord-native immersive RPG bot inspired by tabletop adventures.",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "node dist/index.js",
+    "build": "tsc --noEmit",
+    "commands:deploy": "tsx src/deploy-commands.ts",
+    "test": "tsx --test tests/**/*.test.ts"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "dependencies": {
+    "@discordjs/voice": "^0.19.2",
+    "discord.js": "^14.27.0",
+    "dotenv": "^17.4.2",
+    "opusscript": "^0.0.8"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.2",
+    "tsx": "^4.23.5",
+    "typescript": "^7.0.2"
+  }
+}
