@@ -12,6 +12,7 @@ import type { Narrator } from "../ai/narrator.js";
 import type { Transcriber } from "../ai/transcriber.js";
 import { createCharacter } from "../game/characters.js";
 import { CLASS_KEYS, playableClasses, type ClassKey } from "../game/classes.js";
+import { generateQuestMap } from "../game/generator.js";
 import { continueQuest, startQuest } from "../game/quest.js";
 import type { SaveStore } from "../game/save-store.js";
 import type { Character } from "../game/types.js";
@@ -41,6 +42,7 @@ export type ParsedMessage =
   | { command: "inventory" }
   | { command: "rest" }
   | { command: "startCampaign" }
+  | { command: "newAdventure" }
   | { command: "questAction"; action: string }
   | { command: "unknown" };
 
@@ -101,7 +103,7 @@ export class RpgBot {
         const narrated = await this.narrator.narrateQuest(result);
         await interaction.editReply({
           embeds: [buildQuestEmbed(narrated)],
-          components: buildQuestComponents(narrated.character, narrated.availableActions)
+          components: buildQuestComponents(narrated.character, narrated.availableActions, narrated.actionLabels)
         });
       }
     }
@@ -196,7 +198,22 @@ export class RpgBot {
       await message.reply({
         content: partyLine,
         embeds: [buildQuestEmbed(narrated)],
-        components: buildQuestComponents(narrated.character, narrated.availableActions)
+        components: buildQuestComponents(narrated.character, narrated.availableActions, narrated.actionLabels)
+      });
+      return;
+    }
+
+    if (parsed.command === "newAdventure") {
+      const partyLine = this.voiceTables.describeParty(message);
+      delete state.adventures[message.author.id];
+      const map = generateQuestMap(rollSeed(), character.level);
+      const result = startQuest(state, message.author.id, { map });
+      await this.saveStore.save(state);
+      const narrated = await this.narrator.narrateQuest(result);
+      await message.reply({
+        content: `${partyLine}\nA new adventure unfolds: **${map.title}**.`,
+        embeds: [buildQuestEmbed(narrated)],
+        components: buildQuestComponents(narrated.character, narrated.availableActions, narrated.actionLabels)
       });
       return;
     }
@@ -207,7 +224,7 @@ export class RpgBot {
       const narrated = await this.narrator.narrateQuest(result);
       await message.reply({
         embeds: [buildQuestEmbed(narrated)],
-        components: buildQuestComponents(narrated.character, narrated.availableActions)
+        components: buildQuestComponents(narrated.character, narrated.availableActions, narrated.actionLabels)
       });
       return;
     }
@@ -293,7 +310,21 @@ export class RpgBot {
       const narrated = await this.narrator.narrateQuest(result);
       await event.send({
         embeds: [buildQuestEmbed(narrated)],
-        components: buildQuestComponents(narrated.character, narrated.availableActions)
+        components: buildQuestComponents(narrated.character, narrated.availableActions, narrated.actionLabels)
+      });
+      return;
+    }
+
+    if (parsed.command === "newAdventure") {
+      delete state.adventures[event.userId];
+      const map = generateQuestMap(rollSeed(), character.level);
+      const result = startQuest(state, event.userId, { map });
+      await this.saveStore.save(state);
+      const narrated = await this.narrator.narrateQuest(result);
+      await event.send({
+        content: `A new adventure unfolds: **${map.title}**.`,
+        embeds: [buildQuestEmbed(narrated)],
+        components: buildQuestComponents(narrated.character, narrated.availableActions, narrated.actionLabels)
       });
       return;
     }
@@ -304,7 +335,7 @@ export class RpgBot {
       const narrated = await this.narrator.narrateQuest(result);
       await event.send({
         embeds: [buildQuestEmbed(narrated)],
-        components: buildQuestComponents(narrated.character, narrated.availableActions)
+        components: buildQuestComponents(narrated.character, narrated.availableActions, narrated.actionLabels)
       });
       return;
     }
@@ -434,6 +465,16 @@ export function parseCommandText(input: string): ParsedMessage {
 
   if (lower.includes("rest") || lower.includes("heal up")) {
     return { command: "rest" };
+  }
+
+  if (
+    lower.includes("new adventure") ||
+    lower.includes("random adventure") ||
+    lower.includes("new quest") ||
+    lower.includes("random quest") ||
+    lower.includes("new campaign")
+  ) {
+    return { command: "newAdventure" };
   }
 
   if (
@@ -567,7 +608,7 @@ function parseButtonId(customId: string): ButtonParts | null {
   return { namespace, scope, action, userId };
 }
 
-function buildQuestComponents(character: Character, actions: string[]) {
+function buildQuestComponents(character: Character, actions: string[], labels?: Record<string, string>) {
   if (actions.length === 0) {
     return [];
   }
@@ -575,10 +616,18 @@ function buildQuestComponents(character: Character, actions: string[]) {
   return [
     buttonRow(
       actions.map((action) =>
-        button(`rpg:quest:${action}:${character.ownerId}`, labelForAction(action), styleForAction(action))
+        button(
+          `rpg:quest:${action}:${character.ownerId}`,
+          labels?.[action] || labelForAction(action),
+          styleForAction(action)
+        )
       )
     )
   ];
+}
+
+function rollSeed(): number {
+  return Math.floor(Math.random() * 0x7fffffff);
 }
 
 function buttonRow(buttons: ButtonBuilder[]) {
@@ -627,6 +676,7 @@ function buildTextHelp(botId: string): string {
     "`Varyix players` - I report who is in the voice table.",
     "`Varyix create Rowan warden` - make your character.",
     "`Varyix start campaign` - begin The Hollow Road.",
+    "`Varyix new adventure` - roll a fresh procedurally generated quest.",
     "`Varyix search`, `Varyix attack`, `Varyix class skill`, `Varyix potion` - keep the story moving in chat.",
     "`Varyix sheet`, `Varyix inventory`, `Varyix rest`, `Varyix leave voice`."
   ].join("\n");

@@ -9,7 +9,14 @@ import type { Narrator } from "../ai/narrator.js";
 import type { TtsProvider } from "../audio/tts.js";
 import { createCharacter } from "../game/characters.js";
 import { CLASS_KEYS, playableClasses, type ClassKey } from "../game/classes.js";
-import { continueQuest, startQuest, type QuestResult } from "../game/quest.js";
+import { generateQuestMap } from "../game/generator.js";
+import {
+  actionLabelsForSession,
+  availableActionsForSession,
+  continueQuest,
+  startQuest,
+  type QuestResult
+} from "../game/quest.js";
 import type { SaveStore } from "../game/save-store.js";
 import type { AdventureSession, Character, GameState } from "../game/types.js";
 
@@ -137,8 +144,27 @@ export async function startActivityServer(options: ActivityServerOptions): Promi
     response.json(publicState);
   });
 
-  app.post("/api/quest/start", async (_request, response) => {
+  app.post("/api/quest/start", async (request, response) => {
     const state = await ensureBoardCharacter(options.saveStore);
+
+    if (request.body?.generate) {
+      delete state.adventures[boardOwnerId];
+      const seed = Number.isInteger(request.body?.seed)
+        ? Number(request.body.seed)
+        : Math.floor(Math.random() * 0x7fffffff);
+      const level = state.characters[boardOwnerId]?.level ?? 1;
+      const map = generateQuestMap(seed, level);
+      const generated = startQuest(state, boardOwnerId, { map });
+      await options.saveStore.save(state);
+      const generatedNarrated = await options.narrator.narrateQuest(generated);
+      await publishToDiscord(options, generatedNarrated);
+
+      const generatedState = await buildPublicState(options.saveStore, generatedNarrated);
+      broadcast(clients, { type: "state", state: generatedState });
+      response.json(generatedState);
+      return;
+    }
+
     const result = startQuest(state, boardOwnerId);
     await options.saveStore.save(state);
     const narrated = await options.narrator.narrateQuest(result);
@@ -301,16 +327,17 @@ function prunePlayers(now = Date.now()): void {
 function buildPublicChoices(state: Pick<PublicState, "activeSession" | "lastQuest" | "players">): PublicChoices {
   syncChoiceToken(state);
   const availableActions = actionsForPublicState(state);
+  const labels = actionLabelsForPublicState(state);
   const votes = [...tableChoices.values()]
     .filter((vote) => availableActions.includes(vote.action))
     .map((vote) => ({
       ...vote,
-      label: labelForAction(vote.action)
+      label: labelForAction(vote.action, labels)
     }));
   const needed = Math.max(1, Math.floor(Math.max(1, state.players.length) / 2) + 1);
   const tally = availableActions.map((action) => ({
     action,
-    label: labelForAction(action),
+    label: labelForAction(action, labels),
     count: votes.filter((vote) => vote.action === action).length
   }));
 
@@ -337,25 +364,45 @@ function actionsForPublicState(state: Pick<PublicState, "activeSession" | "lastQ
     return state.lastQuest.availableActions;
   }
 
-  const phase = state.activeSession?.phase;
-  if (phase === "scene") return ["search", "track", "call"];
-  if (phase === "combat") return ["attack", "defend", "skill", "potion", "inspect"];
-  if (phase === "completed" || phase === "failed") return ["start"];
-  return [];
+  const session = state.activeSession;
+
+  if (!session) {
+    return [];
+  }
+
+  if (session.phase === "completed") {
+    return ["start"];
+  }
+
+  return availableActionsForSession(session);
 }
 
-function labelForAction(action: string): string {
-  return {
-    search: "Search",
-    track: "Track",
-    call: "Call Out",
-    attack: "Attack",
-    defend: "Defend",
-    skill: "Class Skill",
-    potion: "Potion",
-    inspect: "Inspect",
-    start: "Start"
-  }[action] || action;
+function actionLabelsForPublicState(
+  state: Pick<PublicState, "activeSession" | "lastQuest">
+): Record<string, string> {
+  if (state.lastQuest?.actionLabels) {
+    return state.lastQuest.actionLabels;
+  }
+
+  return state.activeSession ? actionLabelsForSession(state.activeSession) : {};
+}
+
+function labelForAction(action: string, labels: Record<string, string> = {}): string {
+  return (
+    labels[action] ||
+    {
+      search: "Search",
+      track: "Track",
+      call: "Call Out",
+      attack: "Attack",
+      defend: "Defend",
+      skill: "Class Skill",
+      potion: "Potion",
+      inspect: "Inspect",
+      start: "Start"
+    }[action] ||
+    action
+  );
 }
 
 function broadcast(clients: Set<WebSocket>, payload: unknown): void {

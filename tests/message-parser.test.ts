@@ -25,6 +25,9 @@ test("parses text character creation", () => {
 
 test("parses natural quest actions", () => {
   assert.deepEqual(parseCommandText("we search the wreck"), { command: "questAction", action: "search" });
+  assert.deepEqual(parseCommandText("new adventure"), { command: "newAdventure" });
+  assert.deepEqual(parseCommandText("roll a random quest"), { command: "newAdventure" });
+  assert.deepEqual(parseCommandText("start campaign"), { command: "startCampaign" });
   assert.deepEqual(parseCommandText("I attack it"), { command: "questAction", action: "attack" });
   assert.deepEqual(parseCommandText("use my class skill"), { command: "questAction", action: "skill" });
   assert.deepEqual(parseCommandText("drink a potion"), { command: "questAction", action: "potion" });
