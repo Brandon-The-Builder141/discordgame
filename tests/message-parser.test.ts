@@ -6,6 +6,7 @@ test("parses voice table commands", () => {
   assert.deepEqual(parseCommandText("join voice"), { command: "joinVoice" });
   assert.deepEqual(parseCommandText("who is playing"), { command: "party" });
   assert.deepEqual(parseCommandText("leave call"), { command: "leaveVoice" });
+  assert.deepEqual(parseCommandText("open table"), { command: "table" });
 });
 
 test("parses text character creation", () => {

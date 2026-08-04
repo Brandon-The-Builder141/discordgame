@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Realmbound Table</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="stylesheet" href="/styles.css" />
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "/vendor/three/three.module.js"
+        }
+      }
+    </script>
+  </head>
+  <body class="setup-collapsed">
+    <main class="tabletop-app">
+      <section class="scene-stage">
+        <canvas id="tableCanvas" aria-label="3D tabletop board"></canvas>
+        <div id="tableLabels" class="table-labels" aria-hidden="true"></div>
+
+        <header class="hud top-hud">
+          <div class="brand">
+            <span class="brand-mark">R</span>
+            <div>
+              <p>Realmbound</p>
+              <h1>The Hollow Road</h1>
+            </div>
+          </div>
+          <div class="hud-badges">
+            <button type="button" id="orbitToggle" class="hud-control" aria-pressed="true">Orbit On</button>
+            <div class="view-presets" aria-label="Camera presets">
+              <button type="button" data-view-preset="fit" class="is-active">Fit</button>
+              <button type="button" data-view-preset="top">Top</button>
+              <button type="button" data-view-preset="party">Party</button>
+              <button type="button" data-view-preset="enemy">Enemy</button>
+            </div>
+            <button type="button" id="focusToggle" class="hud-control" aria-pressed="false">Focus</button>
+            <button type="button" id="voiceToggle" class="hud-control" aria-pressed="false">Voice Off</button>
+            <button type="button" id="voiceProfile" class="hud-control" aria-label="Change narrator voice">Gravel</button>
+            <button type="button" id="voiceReplay" class="hud-control" disabled>Replay</button>
+            <button type="button" id="musicToggle" class="hud-control" aria-pressed="false">Music Off</button>
+            <span id="renderStatus">Render High</span>
+            <span id="connectionStatus">Connecting</span>
+            <span id="phaseBadge">Setup</span>
+          </div>
+        </header>
+
+        <aside class="hud party-card">
+          <div class="panel-heading">
+            <span>Party</span>
+            <button type="button" id="collapseSetup" aria-label="Toggle party setup">Setup</button>
+          </div>
+          <form id="characterForm" class="hero-form">
+            <label>
+              Party name
+              <input id="heroName" name="name" maxlength="32" placeholder="The Party" value="The Party" />
+            </label>
+            <label>
+              Lead style
+              <select id="heroClass" name="classKey">
+                <option value="warden">Warden - frontline protector</option>
+                <option value="hexbinder">Hexbinder - dangerous magic</option>
+                <option value="shade">Shade - stealth and precision</option>
+                <option value="mender">Mender - healing and resolve</option>
+              </select>
+            </label>
+            <button type="submit" class="gold-button">Seat Hero</button>
+          </form>
+          <div id="characterCard" class="hero-card"></div>
+        </aside>
+
+        <aside class="hud dm-card">
+          <div class="panel-heading">
+            <span>DM</span>
+            <h2 id="sceneTitle">Waiting at the table</h2>
+          </div>
+          <div id="narrationLog" class="narration-log"></div>
+          <div class="roll-row">
+            <div id="diceTray" class="dice-face">20</div>
+            <div>
+              <p>Last Roll</p>
+              <strong id="rollText">No roll yet</strong>
+            </div>
+          </div>
+        </aside>
+
+        <section class="hud bottom-command">
+          <div>
+            <p id="objectiveText">Seat a hero, then start the first scene.</p>
+            <h2 id="movePrompt">The table is waiting.</h2>
+            <div class="player-seat">
+              <span>Your seat</span>
+              <input id="playerName" maxlength="24" autocomplete="nickname" />
+              <button type="button" id="leaveSeat">Stand</button>
+            </div>
+            <div id="sceneVitals" class="scene-vitals"></div>
+            <div id="clueRack" class="clue-rack"></div>
+            <div id="choiceTable" class="choice-table"></div>
+          </div>
+          <div class="command-actions">
+            <button type="button" id="startSceneButton" class="gold-button">Start Scene</button>
+            <div id="moveGrid" class="move-grid"></div>
+          </div>
+        </section>
+
+        <section id="directorCard" class="director-card" aria-live="polite">
+          <p id="directorEyebrow">Scene</p>
+          <h2 id="directorTitle">Waiting at the table</h2>
+          <p id="directorBody">Seat the lead hero and start the Hollow Road.</p>
+        </section>
+
+        <div id="hoverTooltip" class="hover-tooltip" hidden></div>
+      </section>
+    </main>
+
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>

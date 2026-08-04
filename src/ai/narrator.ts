@@ -103,7 +103,13 @@ export class OpenRouterNarrator implements Narrator {
         return undefined;
       }
 
-      return normalizeNarration(content);
+      const narration = normalizeNarration(content);
+
+      if (isUnsafeNarration(narration)) {
+        return undefined;
+      }
+
+      return narration;
     } finally {
       clearTimeout(timeout);
     }
@@ -128,6 +134,10 @@ function buildNarrationPrompt(result: QuestResult): string {
     `Character: ${describeCharacter(result.character)}`,
     `Enemy: ${result.enemy ? describeEnemy(result.enemy) : "none"}`,
     `Phase: ${result.session.phase}`,
+    `Round: ${result.session.round || 0}`,
+    `Momentum: ${result.session.momentum || 0}`,
+    `Enemy intent: ${result.session.enemyIntent ? `${result.session.enemyIntent.label} - ${result.session.enemyIntent.telegraph}` : "none"}`,
+    `Clues: ${result.session.clues?.join("; ") || "none"}`,
     `Available actions: ${result.availableActions.join(", ") || "none"}`
   ].join("\n");
 }
@@ -154,4 +164,33 @@ function normalizeNarration(value: string): string {
     .replace(/\n{3,}/g, "\n\n")
     .slice(0, 1000)
     .trim();
+}
+
+function isUnsafeNarration(value: string): boolean {
+  const lowered = value.toLowerCase();
+  const blockedFragments = [
+    "original narration:",
+    "do not change rules",
+    "keep it under",
+    "provided game event",
+    "provided specific constraints",
+    "available actions",
+    "so just rewrite",
+    "you are the narrator",
+    "the user wants me",
+    "they've provided",
+    "they have provided",
+    "we need to",
+    "i need to",
+    "the key points",
+    "looking at the original",
+    "plain text only",
+    "must not add mechanics",
+    "character details",
+    "enemy details",
+    "user safety:",
+    "safety: safe"
+  ];
+
+  return blockedFragments.some((fragment) => lowered.includes(fragment));
 }

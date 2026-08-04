@@ -25,7 +25,38 @@ test("starts The Hollow Road and transitions into combat", () => {
   const combat = continueQuest(state, "user-1", "track");
   assert.equal(combat.session.phase, "combat");
   assert.equal(combat.enemy?.name, "Road Stalker");
+  assert.equal(combat.session.round, 1);
+  assert.equal(combat.session.momentum, 1);
+  assert.equal(combat.session.enemyIntent?.key, "rake");
+  assert.match(combat.session.clues?.[0] || "", /Clawed trail/);
   assert.ok(combat.availableActions.includes("attack"));
+});
+
+test("combat rotates enemy intent and awards momentum", () => {
+  const state = emptyState();
+  state.characters["user-1"] = createCharacter("user-1", "Nyx", "shade");
+  startQuest(state, "user-1");
+  continueQuest(state, "user-1", "track");
+
+  const result = continueQuest(state, "user-1", "defend");
+
+  assert.equal(result.session.round, 2);
+  assert.equal(result.session.enemyIntent?.key, "pounce");
+  assert.ok((result.session.momentum || 0) >= 2);
+  assert.match(result.narration, /Momentum/);
+});
+
+test("skill spends banked momentum for a cleaner strike", () => {
+  const state = emptyState();
+  state.characters["user-1"] = createCharacter("user-1", "Vale", "hexbinder");
+  startQuest(state, "user-1");
+  const combat = continueQuest(state, "user-1", "search");
+  combat.session.momentum = 2;
+
+  const result = continueQuest(state, "user-1", "skill");
+
+  assert.match(result.narration, /spends 2 Momentum/);
+  assert.ok((result.session.momentum || 0) >= 0);
 });
 
 test("begin button opens the quest instead of skipping the first scene", () => {

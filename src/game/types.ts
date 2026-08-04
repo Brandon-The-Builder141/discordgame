@@ -37,11 +37,22 @@ export type Enemy = {
   threat: string;
 };
 
+export type EnemyIntent = {
+  key: "rake" | "pounce" | "mimic" | "ward";
+  label: string;
+  telegraph: string;
+  counter: string;
+};
+
 export type AdventureSession = {
   questId: "hollow-road";
   ownerId: string;
   phase: "scene" | "combat" | "completed" | "failed";
   scene: number;
+  round?: number;
+  momentum?: number;
+  clues?: string[];
+  enemyIntent?: EnemyIntent;
   enemy?: Enemy;
   log: string[];
   flags: Record<string, boolean>;

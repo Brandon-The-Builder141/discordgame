@@ -1,6 +1,6 @@
 import { addItem, grantXp } from "./characters.js";
 import { resolveCombatAction, type CombatAction } from "./combat.js";
-import type { AdventureSession, Character, Enemy, GameState } from "./types.js";
+import type { AdventureSession, Character, Enemy, EnemyIntent, GameState } from "./types.js";
 
 export type QuestResult = {
   title: string;
@@ -25,6 +25,9 @@ export function startQuest(state: GameState, ownerId: string): QuestResult {
     ownerId,
     phase: "scene",
     scene: 0,
+    round: 0,
+    momentum: 0,
+    clues: [],
     flags: {},
     log: [openingNarration()],
     updatedAt: new Date().toISOString()
@@ -75,22 +78,28 @@ function resolveSceneAction(character: Character, session: AdventureSession, act
 
   if (action === "search") {
     session.flags.foundToken = true;
+    addClue(session, "Black road-token", "Road Stalker armor is weakened.");
     session.log.push("Under a snapped axle, you find a black road-token marked with a crown split in two.");
   }
 
   if (action === "track") {
     session.flags.trackedEnemy = true;
+    addClue(session, "Clawed trail", "The ambusher starts wounded and easier to pin.");
     session.log.push("The mud shows clawed feet circling the caravan, then vanishing into the ditch grass.");
   }
 
   if (action === "call") {
     session.flags.warnedSurvivor = true;
+    addClue(session, "Courier warning", "The first counterattack is reduced.");
     session.log.push("A trapped courier answers from beneath torn canvas, warning you that something learned to mimic voices.");
   }
 
   session.enemy = createRoadStalker(session);
   session.phase = "combat";
   session.scene = 1;
+  session.round = 1;
+  session.momentum = Math.max(session.momentum || 0, 1);
+  session.enemyIntent = intentForRound(session.round);
   session.log.push("The ditch grass bends the wrong way. A road stalker unfolds itself from the weeds and lunges.");
   touch(character, session);
 
@@ -112,11 +121,41 @@ function resolveQuestCombat(character: Character, session: AdventureSession, act
     return result(character, session, "The Hollow Road: Ambush", "The road stalker waits for your move.", actionsForSession(session));
   }
 
-  const combat = resolveCombatAction(character, session.enemy, action);
-  session.enemy = combat.enemy;
-  session.log.push(...combat.narration);
+  session.round = Math.max(1, session.round || 1);
+  session.momentum = Math.max(0, session.momentum || 0);
+  session.enemyIntent ||= intentForRound(session.round);
 
-  if (combat.characterDefeated) {
+  const intent = session.enemyIntent;
+  const preCombatHp = character.hp;
+  const preCombatArmor = session.enemy.armor;
+  const narrationPrefix: string[] = [];
+  let spentMomentum = false;
+
+  if (action === "skill" && session.momentum >= 2) {
+    session.momentum -= 2;
+    spentMomentum = true;
+    session.enemy.armor = Math.max(0, session.enemy.armor - 2);
+    narrationPrefix.push(`${character.name} spends 2 Momentum to force a cleaner class strike.`);
+  }
+
+  if (intent.key === "ward" && (action === "attack" || action === "skill")) {
+    session.enemy.armor = Math.max(0, session.enemy.armor - 2);
+    narrationPrefix.push("The split-crown ward flickers open, exposing a softer line through the creature's hide.");
+  }
+
+  if (intent.key === "mimic" && action === "inspect") {
+    session.momentum += 2;
+    narrationPrefix.push(`${character.name} ignores the stolen voice and banks 2 Momentum.`);
+  }
+
+  const combat = resolveCombatAction(character, session.enemy, action);
+  session.enemy.armor = preCombatArmor;
+  session.enemy = combat.enemy;
+  session.log.push(...narrationPrefix, ...combat.narration);
+  applyIntentAftermath(character, session, action, intent, preCombatHp);
+  awardMomentum(session, action, combat.rollSummary, spentMomentum);
+
+  if (combat.characterDefeated || character.hp <= 0) {
     session.phase = "failed";
     character.hp = 0;
     session.log.push(`${character.name} collapses as the caravan bells ring in the dark.`);
@@ -152,14 +191,99 @@ function resolveQuestCombat(character: Character, session: AdventureSession, act
   }
 
   touch(character, session);
+  session.round = (session.round || 1) + 1;
+  session.enemyIntent = intentForRound(session.round);
   return result(
     character,
     session,
     "The Hollow Road: Ambush",
-    session.log.slice(-3).join("\n\n"),
+    session.log.slice(-6).join("\n\n"),
     actionsForSession(session),
     combat.rollSummary
   );
+}
+
+function addClue(session: AdventureSession, name: string, effect: string): void {
+  session.clues ||= [];
+  const label = `${name}: ${effect}`;
+
+  if (!session.clues.includes(label)) {
+    session.clues.push(label);
+  }
+}
+
+function awardMomentum(session: AdventureSession, action: CombatAction, rollSummary: string | undefined, spentMomentum: boolean): void {
+  session.momentum = Math.max(0, session.momentum || 0);
+
+  if (action === "defend" || action === "inspect") {
+    session.momentum += 1;
+  }
+
+  if (rollSummary && /\((success|strong|heroic)\)/i.test(rollSummary)) {
+    session.momentum += rollSummary.includes("(heroic)") ? 2 : 1;
+  }
+
+  if (spentMomentum) {
+    session.log.push(`The party spends 2 Momentum. Momentum remaining: ${session.momentum}.`);
+  } else if (session.momentum > 0) {
+    session.log.push(`Momentum: ${session.momentum}.`);
+  }
+}
+
+function applyIntentAftermath(
+  character: Character,
+  session: AdventureSession,
+  action: CombatAction,
+  intent: EnemyIntent,
+  preCombatHp: number
+): void {
+  if (intent.key === "rake" && action !== "defend" && session.enemy && character.hp > 0) {
+    character.hp -= 2;
+    session.log.push(`${intent.label} lands extra pressure for 2 damage.`);
+  }
+
+  if (intent.key === "pounce" && action === "defend") {
+    session.momentum = Math.max(0, (session.momentum || 0) + 2);
+    session.log.push(`${character.name} catches the pounce on guard and gains 2 Momentum.`);
+  }
+
+  if (session.flags.warnedSurvivor && !session.flags.usedCourierWarning && character.hp < preCombatHp) {
+    const reduced = Math.min(3, preCombatHp - character.hp);
+    character.hp += reduced;
+    session.flags.usedCourierWarning = true;
+    session.log.push(`Courier warning saves ${reduced} HP as the party avoids the mimicked feint.`);
+  }
+}
+
+function intentForRound(round: number): EnemyIntent {
+  const intents: EnemyIntent[] = [
+    {
+      key: "rake",
+      label: "Raking Charge",
+      telegraph: "Claws spread wide. Defend blunts the follow-through.",
+      counter: "Defend"
+    },
+    {
+      key: "pounce",
+      label: "Low Pounce",
+      telegraph: "The stalker coils low. Defend converts the impact into Momentum.",
+      counter: "Defend"
+    },
+    {
+      key: "mimic",
+      label: "Mimic Cry",
+      telegraph: "A stolen voice calls from the ditch. Inspect reads the trick.",
+      counter: "Inspect"
+    },
+    {
+      key: "ward",
+      label: "Split-Crown Ward",
+      telegraph: "The black token hums against the creature's armor. Strike now.",
+      counter: "Attack"
+    }
+  ];
+
+  return intents[(Math.max(1, round) - 1) % intents.length]!;
 }
 
 function actionsForSession(session: AdventureSession): string[] {

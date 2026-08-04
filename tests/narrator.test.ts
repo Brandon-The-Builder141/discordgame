@@ -46,3 +46,99 @@ test("OpenRouter narrator falls back when provider fails", async () => {
 
   assert.equal(narrated, result);
 });
+
+test("OpenRouter narrator falls back when provider echoes prompt instructions", async () => {
+  const state = emptyState();
+  state.characters["user-1"] = createCharacter("user-1", "Ari", "mender");
+  const result = startQuest(state, "user-1");
+  const fetchImpl = async () =>
+    new Response(
+      JSON.stringify({
+        choices: [
+          {
+            message: {
+              content: "Original narration: Do not change rules, HP, XP, gold, item rewards, rolls, enemy names, or available actions."
+            }
+          }
+        ]
+      }),
+      { status: 200 }
+    );
+
+  const narrator = new OpenRouterNarrator({ apiKey: "test", model: "openrouter/free", fetchImpl });
+  const narrated = await narrator.narrateQuest(result);
+
+  assert.equal(narrated, result);
+});
+
+test("OpenRouter narrator falls back when provider returns analysis instead of narration", async () => {
+  const state = emptyState();
+  state.characters["user-1"] = createCharacter("user-1", "Ari", "mender");
+  const result = startQuest(state, "user-1");
+  const fetchImpl = async () =>
+    new Response(
+      JSON.stringify({
+        choices: [
+          {
+            message: {
+              content: "Okay, the user wants me to rewrite a game event. I need to keep the key points and constraints."
+            }
+          }
+        ]
+      }),
+      { status: 200 }
+    );
+
+  const narrator = new OpenRouterNarrator({ apiKey: "test", model: "openrouter/free", fetchImpl });
+  const narrated = await narrator.narrateQuest(result);
+
+  assert.equal(narrated, result);
+});
+
+test("OpenRouter narrator falls back when provider returns safety metadata", async () => {
+  const state = emptyState();
+  state.characters["user-1"] = createCharacter("user-1", "Ari", "mender");
+  const result = startQuest(state, "user-1");
+  const fetchImpl = async () =>
+    new Response(
+      JSON.stringify({
+        choices: [
+          {
+            message: {
+              content: "User Safety: safe"
+            }
+          }
+        ]
+      }),
+      { status: 200 }
+    );
+
+  const narrator = new OpenRouterNarrator({ apiKey: "test", model: "openrouter/free", fetchImpl });
+  const narrated = await narrator.narrateQuest(result);
+
+  assert.equal(narrated, result);
+});
+
+test("OpenRouter narrator falls back when provider explains the rewrite task", async () => {
+  const state = emptyState();
+  state.characters["user-1"] = createCharacter("user-1", "Ari", "mender");
+  const result = startQuest(state, "user-1");
+  const fetchImpl = async () =>
+    new Response(
+      JSON.stringify({
+        choices: [
+          {
+            message: {
+              content: "We need to rewrite the event into immersive, punchy narration, under 900 characters, plain text only."
+            }
+          }
+        ]
+      }),
+      { status: 200 }
+    );
+
+  const narrator = new OpenRouterNarrator({ apiKey: "test", model: "openrouter/free", fetchImpl });
+  const narrated = await narrator.narrateQuest(result);
+
+  assert.equal(narrated, result);
+});

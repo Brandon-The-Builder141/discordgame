@@ -26,6 +26,7 @@ Slash commands still exist as a fallback, but the intended flow is normal chat:
 
 ```txt
 Varyix join voice
+Varyix table
 Varyix players
 Varyix create Rowan warden
 Varyix start campaign
@@ -36,7 +37,15 @@ Varyix potion
 Varyix leave voice
 ```
 
-Players can talk in voice to decide what to do. The final action should be posted in text so the bot can roll, update state, and narrate the result.
+Players can talk in voice to decide what to do. The final action should be posted in text or clicked on the live table so the bot can roll, update state, and narrate the result.
+
+The live browser table runs from the bot process at `WEB_PUBLIC_URL`. Locally this defaults to `http://localhost:8787`. In Discord, use:
+
+```txt
+Varyix table
+```
+
+The board lets players click scene hotspots and combat moves. Each click resolves through the same game engine and the bot posts the narration back into the active Discord text channel after it has joined voice.
 
 When `VOICE_TRANSCRIPTION_ENABLED=true`, the bot also listens for short addressed voice moves. Normal conversation is ignored unless the transcript starts with `Varyix`, `DM`, or `Dungeon Master`.
 
@@ -67,6 +76,8 @@ VOICE_TRANSCRIPTION_ENABLED=true
 OPENROUTER_API_KEY=your_openrouter_api_key_here
 OPENROUTER_MODEL=openrouter/free
 OPENROUTER_STT_MODEL=openai/whisper-1
+WEB_PORT=8787
+WEB_PUBLIC_URL=http://localhost:8787
 ```
 
 `DISCORD_GUILD_ID` is optional but recommended while developing because guild commands update immediately.

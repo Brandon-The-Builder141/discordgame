@@ -12,6 +12,12 @@ export type AppConfig = {
   openRouterApiKey?: string;
   openRouterModel: string;
   openRouterSttModel: string;
+  ttsVoice: string;
+  ttsRate: string;
+  ttsPitch: string;
+  ttsVolume: string;
+  webPort: number;
+  webPublicUrl: string;
 };
 
 export function loadConfig(): AppConfig {
@@ -36,6 +42,12 @@ export function loadConfig(): AppConfig {
     saveFile: path.resolve(process.env.SAVE_FILE || "./data/save.json"),
     openRouterApiKey: process.env.OPENROUTER_API_KEY || undefined,
     openRouterModel: process.env.OPENROUTER_MODEL || "openrouter/free",
-    openRouterSttModel: process.env.OPENROUTER_STT_MODEL || "openai/whisper-1"
+    openRouterSttModel: process.env.OPENROUTER_STT_MODEL || "openai/whisper-1",
+    ttsVoice: process.env.TTS_VOICE || "en-US-GuyNeural",
+    ttsRate: process.env.TTS_RATE || "-8%",
+    ttsPitch: process.env.TTS_PITCH || "-12Hz",
+    ttsVolume: process.env.TTS_VOLUME || "+0%",
+    webPort: Number(process.env.WEB_PORT || 8787),
+    webPublicUrl: process.env.WEB_PUBLIC_URL || `http://localhost:${process.env.WEB_PORT || 8787}`
   };
 }

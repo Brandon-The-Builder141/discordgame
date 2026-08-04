@@ -8,6 +8,12 @@ The primary table format is voice discussion plus text resolution. Players talk 
 
 Voice receive is implemented in Node with `@discordjs/voice`, DAVE encryption enabled, Opus decoding, short WAV capture, and OpenRouter speech-to-text. To avoid treating every table discussion as an action, spoken moves must address the bot first, such as "Varyix search the wreck" or "DM attack it."
 
+## Live Table
+
+The browser board is the visual RPG table. Players can click scene hotspots, combat buttons, and character controls. Clicks go to the Node session server, the local rules engine resolves the move, OpenRouter can rewrite the narration, and the bot posts the result back into Discord. This keeps Discord as the social table while the browser app carries the live board state.
+
+The local MVP is served by the bot process. A production Discord Activity will use the same board behind a public HTTPS URL configured in the Discord Developer Portal.
+
 ## Design Goals
 
 - Fast onboarding: one command creates a usable character.

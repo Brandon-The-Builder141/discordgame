@@ -35,6 +35,7 @@ export type ParsedMessage =
   | { command: "joinVoice" }
   | { command: "leaveVoice" }
   | { command: "party" }
+  | { command: "table" }
   | { command: "create"; name?: string; classKey?: ClassKey }
   | { command: "sheet" }
   | { command: "inventory" }
@@ -52,6 +53,7 @@ export class RpgBot {
     options: {
       daveEncryption: boolean;
       transcriber?: Transcriber;
+      boardUrl: string;
     }
   ) {
     this.voiceTables = new VoiceTableManager({
@@ -59,7 +61,10 @@ export class RpgBot {
       transcriber: options.transcriber,
       onTranscript: (event) => this.handleVoiceTranscript(event)
     });
+    this.boardUrl = options.boardUrl;
   }
+
+  private readonly boardUrl: string;
 
   async handleInteraction(interaction: Interaction): Promise<void> {
     if (interaction.isChatInputCommand() && interaction.commandName === "rpg") {
@@ -130,6 +135,11 @@ export class RpgBot {
 
     if (parsed.command === "party") {
       await message.reply(this.voiceTables.describeParty(message));
+      return;
+    }
+
+    if (parsed.command === "table") {
+      await message.reply(`Open the live table here: ${this.boardUrl}\nClick moves on the board and I will narrate them back into this Discord channel after I have joined voice.`);
       return;
     }
 
@@ -205,6 +215,10 @@ export class RpgBot {
     await message.reply("I can run the table when you give me a clear move. Try `Varyix help`.");
   }
 
+  getActiveTable(guildId: string) {
+    return this.voiceTables.getTable(guildId);
+  }
+
   private async handleVoiceTranscript(event: {
     userId: string;
     text: string;
@@ -223,7 +237,7 @@ export class RpgBot {
       return;
     }
 
-    if (parsed.command === "joinVoice" || parsed.command === "leaveVoice" || parsed.command === "party") {
+    if (parsed.command === "joinVoice" || parsed.command === "leaveVoice" || parsed.command === "party" || parsed.command === "table") {
       await event.send("Voice table commands still need to be typed so I know which channel/server context to use.");
       return;
     }
@@ -400,6 +414,10 @@ export function parseCommandText(input: string): ParsedMessage {
 
   if (lower.includes("party") || lower.includes("players") || lower.includes("who is playing")) {
     return { command: "party" };
+  }
+
+  if (lower.includes("open table") || lower.includes("show table") || lower.includes("board") || lower === "table") {
+    return { command: "table" };
   }
 
   if (lower.startsWith("create ") || lower.startsWith("make ")) {
@@ -605,6 +623,7 @@ function buildTextHelp(botId: string): string {
     "",
     "Table flow:",
     "`Varyix join voice` - I join your voice channel and count the party.",
+    "`Varyix table` - I post the live browser board.",
     "`Varyix players` - I report who is in the voice table.",
     "`Varyix create Rowan warden` - make your character.",
     "`Varyix start campaign` - begin The Hollow Road.",

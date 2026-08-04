@@ -107,6 +107,10 @@ export class VoiceTableManager {
     return "No active voice table yet. Join a voice channel and say `Varyix join voice`.";
   }
 
+  getTable(guildId: string): VoiceTable | undefined {
+    return this.tables.get(guildId);
+  }
+
   private attachListener(
     connection: VoiceConnection,
     guildId: string,
